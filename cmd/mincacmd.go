@@ -115,34 +115,10 @@ func processAddr(addr string) ([]*x509.Certificate, error) {
 				}
 				PeerCertificates = append(PeerCertificates, cert)
 			}
-			cp := x509.NewCertPool()
-			if len(PeerCertificates) > 1 {
-				for _, cert := range PeerCertificates[1:] {
-					cp.AddCert(cert)
-				}
-			}
 			var err error
-			VerifiedChains, err = PeerCertificates[0].Verify(x509.VerifyOptions{
-				Intermediates: cp,
-			})
+			VerifiedChains, err = verifyChains(PeerCertificates)
 			if err != nil {
-				var dledIntermediates []*x509.Certificate
-
-				dledIntermediates, err = fetchIntermediates(PeerCertificates[len(PeerCertificates)-1])
-				if err != nil {
-					return fmt.Errorf("failed to find chain for %s: %s", addr, err)
-				}
-				cp = x509.NewCertPool()
-				for _, cert := range dledIntermediates {
-					cp.AddCert(cert)
-				}
-				VerifiedChains, err = PeerCertificates[0].Verify(x509.VerifyOptions{
-					Intermediates: cp,
-				})
-				if err != nil {
-					return fmt.Errorf("chain failed verification after fetch: %s", err)
-				}
-
+				return err
 			}
 			return nil
 		},
@@ -158,6 +134,38 @@ func processAddr(addr string) ([]*x509.Certificate, error) {
 
 	return cullCerts(PeerCertificates, VerifiedChains[0]), nil
 
+}
+
+func verifyChains(certs []*x509.Certificate) (chains [][]*x509.Certificate, err error) {
+
+	cp := x509.NewCertPool()
+	if len(certs) > 1 {
+		for _, cert := range certs[1:] {
+			cp.AddCert(cert)
+		}
+	}
+	chains, err = certs[0].Verify(x509.VerifyOptions{
+		Intermediates: cp,
+	})
+	if err != nil {
+		var dledIntermediates []*x509.Certificate
+
+		dledIntermediates, err = fetchIntermediates(certs[len(certs)-1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to find chain: %s", err)
+		}
+		cp = x509.NewCertPool()
+		for _, cert := range dledIntermediates {
+			cp.AddCert(cert)
+		}
+		chains, err = certs[0].Verify(x509.VerifyOptions{
+			Intermediates: cp,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("chain failed verification after fetch: %s", err)
+		}
+	}
+	return
 }
 
 func cullCerts(exclude []*x509.Certificate, haystack []*x509.Certificate) []*x509.Certificate {
@@ -242,17 +250,7 @@ func processFile(certfile string) ([]*x509.Certificate, error) {
 		fmt.Errorf("no proper ASN1 certificate data found in file %s", certfile)
 	}
 
-	// We assume first is the certificate, and the remaining ones are intermediates.
-	cp := x509.NewCertPool()
-	if len(certs) > 1 {
-		for _, crt := range certs[1:] {
-			cp.AddCert(crt)
-		}
-	}
-	chains, err := certs[0].Verify(x509.VerifyOptions{
-		Intermediates: cp,
-		Roots:         nil, // use system cert pool
-	})
+	chains, err := verifyChains(certs)
 
 	if err != nil {
 		return nil, fmt.Errorf("error on verification of file %s: %s", certfile, err)
