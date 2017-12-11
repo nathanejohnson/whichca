@@ -7,7 +7,7 @@ import (
 	"github.com/nathanejohnson/whichca/cmd"
 )
 
-func system_specific_cmds(cmds map[string]cli.CommandFactory) {
+func systemSpecificCmds(cmds map[string]cli.CommandFactory) {
 	cmds["dumpca"] = func() (cli.Command, error) {
 		return &cmd.DumpCACmd{}, nil
 	}

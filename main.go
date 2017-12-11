@@ -16,7 +16,7 @@ func main() {
 			return cmd.NewMinCACmd(), nil
 		},
 	}
-	system_specific_cmds(c.Commands)
+	systemSpecificCmds(c.Commands)
 	c.Args = os.Args[1:]
 	errno, err := c.Run()
 	if err != nil {

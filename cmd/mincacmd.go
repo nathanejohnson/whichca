@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -45,6 +47,10 @@ func (mca *MinCACmd) Help() string {
 	return mca.b.String()
 }
 
+func thumb(cert *x509.Certificate) string {
+	return base64.RawStdEncoding.EncodeToString(sha1.New().Sum(cert.Raw))
+}
+
 func (mca *MinCACmd) Run(args []string) int {
 	err := mca.f.Parse(args)
 	if err != nil || (len(mca.files) == 0 && len(mca.hostports) == 0) {
@@ -60,7 +66,7 @@ func (mca *MinCACmd) Run(args []string) int {
 			}
 		}
 		for _, crt := range certs {
-			cm[crt.Subject.CommonName] = crt
+			cm[thumb(crt)] = crt
 		}
 	}
 
@@ -73,7 +79,7 @@ func (mca *MinCACmd) Run(args []string) int {
 			}
 		}
 		for _, crt := range certs {
-			cm[crt.Subject.CommonName] = crt
+			cm[thumb(crt)] = crt
 		}
 	}
 	for _, cert := range cm {
@@ -176,12 +182,12 @@ func cullCerts(exclude []*x509.Certificate, haystack []*x509.Certificate) []*x50
 	for _, crt := range exclude {
 		// skip roots if passed in as an exclude
 		if crt.Issuer.CommonName != crt.Subject.CommonName && crt.Issuer.CommonName != "" {
-			skips[crt.Subject.CommonName] = true
+			skips[thumb(crt)] = true
 		}
 	}
 	var ret []*x509.Certificate
 	for _, crt := range haystack {
-		if !skips[crt.Subject.CommonName] {
+		if !skips[thumb(crt)] {
 			ret = append(ret, crt)
 		}
 	}
