@@ -160,7 +160,6 @@ func verifyChains(certs []*x509.Certificate) (chains [][]*x509.Certificate, err 
 		if err != nil {
 			return nil, fmt.Errorf("failed to find chain: %s", err)
 		}
-		cp = x509.NewCertPool()
 		for _, cert := range dledIntermediates {
 			cp.AddCert(cert)
 		}
