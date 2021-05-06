@@ -32,6 +32,10 @@ func (dc *DumpCACmd) Run(args []string) int {
 	// eww
 	v := reflect.ValueOf(systemCA)
 	certsv := v.Elem().FieldByName("certs")
+	if certsv.Kind() == reflect.Invalid {
+		log.Print("this only works on golang 1.15 and earlier.  sorry :(")
+		return 1
+	}
 	certs := reflect.NewAt(certsv.Type(),
 		unsafe.Pointer(certsv.UnsafeAddr())).
 		Elem().
