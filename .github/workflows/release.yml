@@ -1,0 +1,31 @@
+Name: Release
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Build using golang 1.15.11 for all platforms except darwin/arm64
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.15.11'
+        run: ${GITHUB_WORKSPACE}/build.sh -s whichca ${{ steps.get_version.outputs.VERSION }} darwin/arm64
+      - name: Build using golang 1.16.3 for darwin/arm64
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.6.3'
+        run: ${GITHUB_WORKSPACE}/build.sh whichca ${{ steps.get_version.outputs.VERSION }} darwin/arm64
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: whichca_*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
