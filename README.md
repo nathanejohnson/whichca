@@ -61,6 +61,13 @@ to get a full dump of the default system certificate bundle, with the following:
 
     whichca dumpca
 
+The reason this only works for golang 1.15 or earlier is because with go 1.16
+they changed the internal structure of the x509.CertPool, and I'm using
+reflection to access an unexported field that no longer exists with go 1.16,
+and there doesn't seem to be any workaround without a ton of work.  I guess it
+was just a matter of time until the leopards ate *my* face.  For this reason, 
+most of the binary releases are compiled with the latest golang 1.15.* toolchain,
+except for darwin/arm64, which needs 1.16 to be able to support that platform.
 
 ## Flags
 
