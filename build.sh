@@ -1,30 +1,5 @@
 #!/bin/bash
 set -e
-function supported_osarch {
-	# Arguments:
-	#   $1 - osarch - example, linux/amd64
-	#
-	# Returns:
-	#   0 - supported
-	#   * - not supported
-	local osarch="$1"
-	local -a valids=( $(go tool dist list) )
-	in_array "${osarch}" "${valids[@]}"
-	return $?
-}
-
-function in_array {
-	local needle="$1"
-	shift
-	local -a haystack=("$@")
-
-	for item in "$@"; do
-		if [ "$item" == "$needle" ]; then
-			return 0
-		fi
-	done
-	return 1
-}
 
 function usage {
 	cat <<EOF
@@ -52,7 +27,31 @@ will be skipped because we asked it to.
 
 EOF
 }
+function supported_osarch {
+	# Arguments:
+	#   $1 - osarch - example, linux/amd64
+	#
+	# Returns:
+	#   0 - supported
+	#   * - not supported
+	local osarch="$1"
+	local -a valids=( $(go tool dist list) )
+	in_array "${osarch}" "${valids[@]}"
+	return $?
+}
 
+function in_array {
+	local needle="$1"
+	shift
+	local -a haystack=("$@")
+
+	for item in "$@"; do
+		if [ "$item" == "$needle" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
 
 skip=0
 while getopts s flag; do
@@ -76,10 +75,13 @@ GOARCHES=( 386 amd64 arm64 )
 SKIPS=( )
 INCLUDES=( )
 
-# this defaults to all permutations of GOOS/GOARCH
+# this defaults to all valid permutations of GOOS/GOARCH
 for GOOS in "${GOOSES[@]}"; do
 	for GOARCH in "${GOARCHES[@]}"; do
-		INCLUDES+=("${GOOS}/${GOARCH}")
+		combo="${GOOS}/${GOARCH}"
+		if supported_osarch "${combo}"; then
+			INCLUDES+=("${combo}")
+		fi
 	done
 done
 
@@ -101,35 +103,38 @@ if [ "${skip}" -eq 0 ] && [ "$#" -gt 2 ]; then
 		if ! in_array "${goosey[1]}" "${GOARCHES[@]}"; then
 			GOARCHES+=("${goosey[1]}")
 		fi
-		INCLUDES+=("${combo}")
-
+		if ! in_array "${combo}" "${INCLUDES[@]}"; then
+			INCLUDES+=("${combo}")
+		fi
 	done
 else
-	# this is an exclusive list of what to skip.
+	# either the rest of the parameters don't have data, or skip is 1.
+	# possibly both. so either SKIPS ends up empty (default anyway), or
+	# it's populated appropriately. this is a list of combos to exclude.
 	SKIPS=("${@:3}")
 fi
 
-echo GOOSES "${GOOSES[@]}"
-echo GOARCHES "${GOARCHES[@]}"
+echo INCLUDES "${INCLUDES[@]}"
 echo SKIPS "${SKIPS[@]}"
 
 NAME=${1}
 RELEASE=${2}
 
-echo "NAME: ${NAME} RELEASE: ${RELEASE}"
+echo "NAME: ${NAME}"
+echo "RELEASE: ${RELEASE}"
 for GOOS in "${GOOSES[@]}"; do
 	for GOARCH in "${GOARCHES[@]}"; do
-		COMBO="${GOOS}/${GOARCH}"
-		if ! in_array "${COMBO}" "${INCLUDES[@]}"; then
+		combo="${GOOS}/${GOARCH}"
+		if ! in_array "${combo}" "${INCLUDES[@]}"; then
 			continue
 		fi
-		if ! supported_osarch "${COMBO}"; then
-			echo skipping "${COMBO}" because invalid combo
+		if ! supported_osarch "${combo}"; then
+			echo skipping "${combo}" because invalid combo
 			continue
 		fi
 
-		if in_array "${COMBO}" "${SKIPS[@]}"; then
-			echo skipping "${COMBO}" because we were asked to
+		if in_array "${combo}" "${SKIPS[@]}"; then
+			echo skipping "${combo}" because we were asked to
 			continue
 		fi
  		SUFFIX=""
@@ -141,3 +146,4 @@ for GOOS in "${GOOSES[@]}"; do
 		GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 go build -o "${FILENAME}"
 	done
 done
+
