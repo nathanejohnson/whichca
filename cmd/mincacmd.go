@@ -1,54 +1,35 @@
 package cmd
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
-	"flag"
 	"fmt"
 	"io/ioutil"
-	golog "log"
-	"net/http"
 	"os"
 	"strings"
-)
-
-var (
-	log *golog.Logger
 )
 
 type MinCACmd struct {
 	hostports   stringparams
 	files       globparams
+	cafile      string
 	contOnError bool
-	f           *flag.FlagSet
-	b           *bytes.Buffer
+	*BaseCmd
 }
 
 func NewMinCACmd() *MinCACmd {
 	mca := &MinCACmd{
-		f: flag.NewFlagSet("minca", flag.ContinueOnError),
-		b: &bytes.Buffer{},
+		BaseCmd: &BaseCmd{},
 	}
+	mca.BaseCmd.Init("minca")
 	mca.f.SetOutput(mca.b)
 	mca.f.Var(&mca.hostports, "hp", "search `host:port` for ssl chains")
 	mca.f.Var(&mca.files, "p", "search `pathspec` for certificate files")
 	mca.f.BoolVar(&mca.contOnError, "continue", false, "continue on error")
-	log = golog.New(os.Stderr, "", 0)
+	mca.f.StringVar(&mca.cafile, "ca", "", "path to a ca bundle.  defaults to the system bundle")
 	return mca
-}
-
-func (mca *MinCACmd) Help() string {
-	mca.b.Reset()
-	mca.f.PrintDefaults()
-	return mca.b.String()
-}
-
-func thumb(cert *x509.Certificate) string {
-	return base64.RawStdEncoding.EncodeToString(sha1.New().Sum(cert.Raw))
 }
 
 func (mca *MinCACmd) Run(args []string) int {
@@ -56,9 +37,19 @@ func (mca *MinCACmd) Run(args []string) int {
 	if err != nil || (len(mca.files) == 0 && len(mca.hostports) == 0) {
 		return RunResultHelp
 	}
+
+	var ca *x509.CertPool
+	if mca.cafile != "" {
+		ca, err = loadCABundle(mca.cafile)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+	}
+
 	cm := make(map[string]*x509.Certificate)
 	for _, file := range mca.files {
-		certs, err := processFile(file)
+		certs, err := processFile(file, ca)
 		if err != nil {
 			log.Println(err)
 			if !mca.contOnError {
@@ -71,7 +62,7 @@ func (mca *MinCACmd) Run(args []string) int {
 	}
 
 	for _, hostport := range mca.hostports {
-		certs, err := processAddr(hostport)
+		certs, err := processAddr(hostport, ca)
 		if err != nil {
 			log.Println(err)
 			if !mca.contOnError {
@@ -83,11 +74,7 @@ func (mca *MinCACmd) Run(args []string) int {
 		}
 	}
 	for _, cert := range cm {
-		fmt.Printf("# %s\n", cert.Subject.CommonName)
-		pem.Encode(os.Stdout, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cert.Raw,
-		})
+		writeCert(os.Stdout, cert)
 	}
 	return 0
 }
@@ -96,7 +83,7 @@ func (mca *MinCACmd) Synopsis() string {
 	return "return minimum CA bundle for given input"
 }
 
-func processAddr(addr string) ([]*x509.Certificate, error) {
+func processAddr(addr string, ca *x509.CertPool) ([]*x509.Certificate, error) {
 	hostport := strings.Split(addr, ":")
 	if len(hostport) != 2 {
 		return nil, fmt.Errorf("invalid host:port specification: %s", addr)
@@ -122,7 +109,7 @@ func processAddr(addr string) ([]*x509.Certificate, error) {
 				PeerCertificates = append(PeerCertificates, cert)
 			}
 			var err error
-			VerifiedChains, err = verifyChains(PeerCertificates)
+			VerifiedChains, _, err = verifyChains(PeerCertificates, ca)
 			if err != nil {
 				return err
 			}
@@ -142,35 +129,8 @@ func processAddr(addr string) ([]*x509.Certificate, error) {
 
 }
 
-func verifyChains(certs []*x509.Certificate) (chains [][]*x509.Certificate, err error) {
-
-	cp := x509.NewCertPool()
-	if len(certs) > 1 {
-		for _, cert := range certs[1:] {
-			cp.AddCert(cert)
-		}
-	}
-	chains, err = certs[0].Verify(x509.VerifyOptions{
-		Intermediates: cp,
-	})
-	if err != nil {
-		var dledIntermediates []*x509.Certificate
-
-		dledIntermediates, err = fetchIntermediates(certs[len(certs)-1])
-		if err != nil {
-			return nil, fmt.Errorf("failed to find chain: %s", err)
-		}
-		for _, cert := range dledIntermediates {
-			cp.AddCert(cert)
-		}
-		chains, err = certs[0].Verify(x509.VerifyOptions{
-			Intermediates: cp,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("chain failed verification after fetch: %s", err)
-		}
-	}
-	return
+func thumb(cert *x509.Certificate) string {
+	return base64.RawStdEncoding.EncodeToString(sha1.New().Sum(cert.Raw))
 }
 
 func cullCerts(exclude []*x509.Certificate, haystack []*x509.Certificate) []*x509.Certificate {
@@ -193,54 +153,10 @@ func cullCerts(exclude []*x509.Certificate, haystack []*x509.Certificate) []*x50
 	return ret
 }
 
-func fetchIntermediates(cert *x509.Certificate) ([]*x509.Certificate, error) {
-	origCert := cert
-	var retval []*x509.Certificate
-	for {
-		_, err := cert.Verify(x509.VerifyOptions{})
-		if err == nil {
-			break
-		}
-		if len(cert.IssuingCertificateURL) == 0 {
-			return nil, fmt.Errorf("failed to fetchintermediates for %s",
-				origCert.Subject.CommonName)
-		}
-		cert, err = fetchCert(cert.IssuingCertificateURL[0])
-		if err != nil {
-			return nil, fmt.Errorf("error fetching intermediate %s for %s: %s",
-				cert.Issuer.CommonName,
-				origCert.Subject.CommonName,
-				err,
-			)
-		}
-		retval = append(retval, cert)
-
-	}
-	return retval, nil
-}
-
-func fetchCert(url string) (*x509.Certificate, error) {
-	c := http.Client{}
-	resp, err := c.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching url %s: %s", url, err)
-	}
-	defer resp.Body.Close()
-	raw, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading respse body for url %s: %s", url, err)
-	}
-	cert, err := x509.ParseCertificate(raw)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing certificate for url %s: %s", url, err)
-	}
-	return cert, nil
-}
-
-func processFile(certfile string) ([]*x509.Certificate, error) {
+func processFile(certfile string, ca *x509.CertPool) ([]*x509.Certificate, error) {
 	fbytes, err := ioutil.ReadFile(certfile)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file %s: %s", certfile, err)
+		return nil, fmt.Errorf("error reading file %s: %w", certfile, err)
 	}
 	certders := decodePemsByType(fbytes, "CERTIFICATE")
 	if len(certders) == 0 {
@@ -248,17 +164,17 @@ func processFile(certfile string) ([]*x509.Certificate, error) {
 	}
 	certs, err := x509.ParseCertificates(certders)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing certificates for file %s: %s", certfile, err)
+		return nil, fmt.Errorf("error parsing certificates for file %s: %w", certfile, err)
 	}
 
 	if len(certs) == 0 {
 		fmt.Errorf("no proper ASN1 certificate data found in file %s", certfile)
 	}
 
-	chains, err := verifyChains(certs)
+	chains, _, err := verifyChains(certs, ca)
 
 	if err != nil {
-		return nil, fmt.Errorf("error on verification of file %s: %s", certfile, err)
+		return nil, fmt.Errorf("error on verification of file %s: %w", certfile, err)
 	}
 
 	if len(chains) == 0 {
@@ -270,21 +186,4 @@ func processFile(certfile string) ([]*x509.Certificate, error) {
 		ret = append(ret, cullCerts(certs, chain)...)
 	}
 	return ret, nil
-}
-
-// Return all decoded pem blocks of a specified type.
-func decodePemsByType(PEMblocks []byte, Type string) []byte {
-	var blck *pem.Block
-	rest := PEMblocks
-	var resp []byte
-	for {
-		blck, rest = pem.Decode(rest)
-		if blck == nil {
-			break
-		}
-		if blck.Type == Type {
-			resp = append(resp, blck.Bytes...)
-		}
-	}
-	return resp
 }

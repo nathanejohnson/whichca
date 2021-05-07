@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/mitchellh/cli"
+
 	"github.com/nathanejohnson/whichca/cmd"
 )
 
@@ -14,6 +15,12 @@ func main() {
 	c.Commands = map[string]cli.CommandFactory{
 		"minca": func() (cli.Command, error) {
 			return cmd.NewMinCACmd(), nil
+		},
+		"check": func() (cli.Command, error) {
+			return cmd.NewCheckIntermediateCmd(), nil
+		},
+		"fetchca": func() (cli.Command, error) {
+			return cmd.NewFetchCACmd(), nil
 		},
 	}
 	systemSpecificCmds(c.Commands)

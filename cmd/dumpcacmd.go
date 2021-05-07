@@ -2,27 +2,29 @@ package cmd
 
 import (
 	"crypto/x509"
-	"encoding/pem"
-	"fmt"
-	golog "log"
 	"os"
 	"reflect"
 	"unsafe"
 )
 
 type DumpCACmd struct {
+	*BaseCmd
+}
+
+func NewCumpCACmd() *DumpCACmd {
+	dca := &DumpCACmd{
+		BaseCmd: &BaseCmd{},
+	}
+	dca.Init("dumpca")
+	return dca
 }
 
 func (dc *DumpCACmd) Synopsis() string {
 	return "Dump the system CA cert bundle to stdout with PEM encoding"
 }
 
-func (dc *DumpCACmd) Help() string {
-	return ""
-}
 
 func (dc *DumpCACmd) Run(args []string) int {
-	log = golog.New(os.Stderr, "", 0)
 	systemCA, err := x509.SystemCertPool()
 	if err != nil {
 		log.Print("error parsing system CA cert bundle: %s", err)
@@ -42,12 +44,7 @@ func (dc *DumpCACmd) Run(args []string) int {
 		Interface().([]*x509.Certificate)
 
 	for _, cert := range certs {
-		fmt.Printf("# %s\n", cert.Subject.CommonName)
-
-		pem.Encode(os.Stdout, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cert.Raw,
-		})
+		writeCert(os.Stdout, cert)
 	}
 	return 0
 }

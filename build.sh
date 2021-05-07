@@ -1,27 +1,23 @@
 #!/bin/bash
 set -e
 function supported_osarch {
-   # Arguments:
-   #   $1 - osarch - example, linux/amd64
-   #
-   # Returns:
-   #   0 - supported
-   #   * - not supported
-   local osarch="$1"
-   for valid in $(go tool dist list)
-   do
-      if test "${osarch}" = "${valid}"
-      then
-         return 0
-      fi
-   done
-   return 1
+	# Arguments:
+	#   $1 - osarch - example, linux/amd64
+	#
+	# Returns:
+	#   0 - supported
+	#   * - not supported
+	local osarch="$1"
+	local -a valids=( $(go tool dist list) )
+	in_array "${osarch}" "${valids[@]}"
+	return $?
 }
 
 function in_array {
 	local needle="$1"
 	shift
 	local -a haystack=("$@")
+
 	for item in "$@"; do
 		if [ "$item" == "$needle" ]; then
 			return 0
@@ -34,11 +30,25 @@ function usage {
 	cat <<EOF
 ${0} [ -s ] <binaryname> <release> [platforms...]
 
+This builds go programs for one or more GOOS/GOARCH combinations.
+
 If -s is passed, [platforms] is interpreted as goos/goarch combinations to skip.
 
 Otherwise, [platforms] will be the goos/goarch combinations to build.
 
 If no [platforms] are passed, it builds the popular platform / arch combinations.
+
+Platforms must be specified with GOOS/GOARCH.  As an example:
+
+    ${0} mybinary 1.0.0 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+
+This would compile the binary for linux and darwin platforms in both amd64 and arm64 arches.
+
+    ${0} -s mybinary 1.0.0 darwin/arm64
+
+This would compile for darwin, linux, windows, freebsd and openbsd for 386, arm64 and amd64
+except for those combinations go tool dist list doesn't specify, and in this case darwin/arm64
+will be skipped because we asked it to.
 
 EOF
 }
@@ -85,8 +95,8 @@ else
 	SKIPS=("${@:3}")
 fi
 
-echo GOOSES "${GOOSES[*]}"
-echo GOARCHES "${GOARCHES[*]}"
+echo GOOSES "${GOOSES[@]}"
+echo GOARCHES "${GOARCHES[@]}"
 echo SKIPS "${SKIPS[@]}"
 
 NAME=${1}
