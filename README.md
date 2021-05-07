@@ -67,7 +67,7 @@ reflection to access an unexported field that no longer exists with go 1.16,
 and there doesn't seem to be any workaround without a ton of work.  I guess it
 was just a matter of time until the leopards ate *my* face.  For this reason, 
 most of the binary releases are compiled with the latest golang 1.15.* toolchain,
-except for darwin/arm64, which needs 1.16 to be able to support that platform.
+except for darwin, which needs 1.16 to be able to support that platform as of big sur.
 
 ## Flags
 
