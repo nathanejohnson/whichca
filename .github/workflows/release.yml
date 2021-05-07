@@ -14,17 +14,17 @@ jobs:
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-      - name: Setup golang 1.15.11 for all platforms except darwin/arm64
+      - name: Setup golang 1.15.11 for all platforms except darwin
         uses: actions/setup-go@v2
         with:
           go-version: '1.15.11'
       - name: Build for all platforms except darwin
         run: ${GITHUB_WORKSPACE}/build.sh -s whichca ${{ steps.get_version.outputs.VERSION }} darwin/arm64 darwin/amd64
-      - name: Setup golang 1.16.3 for darwin/arm64
+      - name: Setup golang 1.16.3 for darwin
         uses: actions/setup-go@v2
         with:
-          go-version: '1.6.3'
-      - name: Build for darwin/arm64
+          go-version: '1.6.4'
+      - name: Build for darwin
         run: ${GITHUB_WORKSPACE}/build.sh whichca ${{ steps.get_version.outputs.VERSION }} darwin/arm64 darwin/amd64
       - name: Release
         uses: softprops/action-gh-release@v1
