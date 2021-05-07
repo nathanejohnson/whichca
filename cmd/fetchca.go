@@ -107,7 +107,7 @@ func (fca *FetchCACmd) run() error {
 		if err != nil {
 			return fmt.Errorf("failed validation of downloaded bundle: %w", err)
 		}
-		log.Printf("verified %d certificates in downloaded bundle", len(pool.Subjects()))
+		log.Printf("verified %d certificates in bundle downloaded from %s", len(pool.Subjects()), fca.URL)
 
 		// reopen the temp file for reading for the copy below.
 		f, err := os.Open(tf.Name())
