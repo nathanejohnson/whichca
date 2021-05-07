@@ -70,13 +70,25 @@ if [ "$#" -lt 2 ]; then
 	exit 1
 fi
 
+# default list of os'es and arches
 GOOSES=( linux freebsd darwin windows openbsd )
 GOARCHES=( 386 amd64 arm64 )
 SKIPS=( )
+INCLUDES=( )
+
+# this defaults to all permutations of GOOS/GOARCH
+for GOOS in "${GOOSES[@]}"; do
+	for GOARCH in "${GOARCHES[@]}"; do
+		INCLUDES+=("${GOOS}/${GOARCH}")
+	done
+done
+
 
 if [ "${skip}" -eq 0 ] && [ "$#" -gt 2 ]; then
+	# this is an inclusive list of what to build.
 	GOOSES=( )
 	GOARCHES=( )
+	INCLUDES=( )
 	for combo in "${@:3}"; do
 		IFS='/' read -r -a goosey <<< "$combo"
 		if [ ${#goosey[@]} -ne 2 ]; then
@@ -89,9 +101,11 @@ if [ "${skip}" -eq 0 ] && [ "$#" -gt 2 ]; then
 		if ! in_array "${goosey[1]}" "${GOARCHES[@]}"; then
 			GOARCHES+=("${goosey[1]}")
 		fi
+		INCLUDES+=("${combo}")
 
 	done
 else
+	# this is an exclusive list of what to skip.
 	SKIPS=("${@:3}")
 fi
 
@@ -106,6 +120,9 @@ echo "NAME: ${NAME} RELEASE: ${RELEASE}"
 for GOOS in "${GOOSES[@]}"; do
 	for GOARCH in "${GOARCHES[@]}"; do
 		COMBO="${GOOS}/${GOARCH}"
+		if ! in_array "${COMBO}" "${INCLUDES[@]}"; then
+			continue
+		fi
 		if ! supported_osarch "${COMBO}"; then
 			echo skipping "${COMBO}" because invalid combo
 			continue
