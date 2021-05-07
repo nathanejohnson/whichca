@@ -11,9 +11,9 @@ This is a utility for
 
 #### Usage:
 
-###Subcommands:
+### Subcommands:
 
-##check
+## check
 
 This is to check a site or a pem certificate file to see if it is trusted
 against either the system default CA bundle (default) or a CA bundle file specified
@@ -25,7 +25,7 @@ intermediates needed to correct the configuration.
     www.bing.com is good!
     (njohnson@greyeagle:~)%
 
-##fetchca
+## fetchca
 
 This is to download and (optionally) verify a PEM CA bundle from a remote website
 .  It defaults to the mozilla PEM bundle provided by curl.se.  Please don't
@@ -38,7 +38,7 @@ and do any attempt to enforce this.
     (njohnson@greyeagle:~)%
 
 Note this verification is only that the certificates are parsable and valid.
-##minca
+## minca
 
 This is a command for determining the minimum CA bundle needed to validate a list
 of certificate bundles or websites.
