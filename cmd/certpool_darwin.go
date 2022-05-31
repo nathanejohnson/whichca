@@ -16,17 +16,19 @@ func SystemCertPool() ([]*x509.Certificate, error) {
 	defer cancel()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "security", "find-certificate", "-a", "-p")
+	cmd := exec.CommandContext(ctx,
+		"security", "find-certificate", "-ap",
+		"/System/Library/Keychains/SystemRootCertificates.keychain")
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
 		return nil, fmt.Errorf("fuck: %w stderr: %s\n", err, stderr.String())
 	}
-	var certs []*x509.Certificate
 	var (
+		certs []*x509.Certificate
 		block *pem.Block
-		rest  []byte = stdout.Bytes()
+		rest  = stdout.Bytes()
 	)
 	for {
 		block, rest = pem.Decode(rest)
@@ -38,8 +40,8 @@ func SystemCertPool() ([]*x509.Certificate, error) {
 			// ignore the certs where inner and outer don't match.
 			if err != nil {
 				if err.Error() == "x509: inner and outer signature algorithm identifiers don't match" {
-					fmt.Fprintf(os.Stderr, "# -- warning, the following had an error:\n"+
-						"# x509: inner and outer signature algorithm identifiers don't match\n")
+					fmt.Fprintf(os.Stderr, "# -- warning, the following cert had an error:\n# %s\n",
+						err.Error())
 					pem.Encode(os.Stderr, block)
 					continue
 				}
