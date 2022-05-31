@@ -56,18 +56,19 @@ certificate and intermediates found in the cert bundle(s) passed.
 
 ### dumpca
 
-Additionally, on platforms that aren't Windows-based and when compiled against golang 1.15.* or earlier, it can be used
+Additionally, on platforms that aren't Windows-based, it can be used
 to get a full dump of the default system certificate bundle, with the following:
 
     whichca dumpca
 
-The reason this only works for golang 1.15 or earlier is because with go 1.16
-they changed the internal structure of the x509.CertPool, and I'm using
-reflection to access an unexported field that no longer exists with go 1.16,
-and there doesn't seem to be any workaround without a ton of work.  I guess it
-was just a matter of time until the leopards ate *my* face.  For this reason, 
-most of the binary releases are compiled with the latest golang 1.15.* toolchain,
-except for darwin, which needs 1.16 to be able to support that platform as of big sur.
+This works on mac using the `security find-certificate -a -p` utility, which is what golang
+did under the covers until recently when they decided to defer to the darwin keychain
+for verification.  There are some caveats here, one being that the darwin keychain
+is more lax than the golang x509 parser, so some certs in the keychain might not get
+parsed correctly by golang.  In the case it finds one of these, it will spit the
+certificate out in PEM form on stderr with a warning in the comments.  See
+[Here](https://github.com/golang/go/issues/47689) for details.  On other *nix platforms,
+it calls `x509.SystemCertPool` and does some reflect nastiness to ferret out the certs.
 
 ## Flags
 
