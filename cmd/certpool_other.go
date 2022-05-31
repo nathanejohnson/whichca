@@ -24,7 +24,6 @@ func CertPoolSnoopable() (bool, []*x509.Certificate, error) {
 	default:
 		return false, nil, fmt.Errorf("invalid type: %s", k.String())
 	}
-	fmt.Printf("got %d certs\n", lazyCertsV.Len())
 	certs := make([]*x509.Certificate, lazyCertsV.Len())
 	for i := 0; i < lazyCertsV.Len(); i++ {
 		lcv := lazyCertsV.Index(i)
