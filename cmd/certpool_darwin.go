@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func CertPoolSnoopable() (bool, []*x509.Certificate, error) {
+func SystemCertPool() ([]*x509.Certificate, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	var stdout bytes.Buffer
@@ -21,7 +21,7 @@ func CertPoolSnoopable() (bool, []*x509.Certificate, error) {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		return false, nil, fmt.Errorf("fuck: %w stderr: %s\n", err, stderr.String())
+		return nil, fmt.Errorf("fuck: %w stderr: %s\n", err, stderr.String())
 	}
 	var certs []*x509.Certificate
 	var (
@@ -43,10 +43,10 @@ func CertPoolSnoopable() (bool, []*x509.Certificate, error) {
 					pem.Encode(os.Stderr, block)
 					continue
 				}
-				return false, nil, err
+				return nil, err
 			}
 			certs = append(certs, cert)
 		}
 	}
-	return true, certs, nil
+	return certs, nil
 }

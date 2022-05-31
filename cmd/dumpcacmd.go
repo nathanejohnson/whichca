@@ -21,13 +21,9 @@ func (dc *DumpCACmd) Synopsis() string {
 }
 
 func (dc *DumpCACmd) Run(args []string) int {
-	ok, certs, err := CertPoolSnoopable()
+	certs, err := SystemCertPool()
 	if err != nil {
 		log.Printf("error fetching system cert pool: %s", err)
-		return 1
-	}
-	if !ok {
-		log.Printf("only supported on golang 1.15 and older :(")
 		return 1
 	}
 	for _, cert := range certs {
