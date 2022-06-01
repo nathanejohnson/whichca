@@ -67,7 +67,7 @@ for verification.  There are some caveats here, one being that the darwin keycha
 is more lax than the golang x509 parser, so some certs in the keychain might not get
 parsed correctly by golang.  In the case it finds one of these, it will spit the
 certificate out in PEM form on stderr with a warning in the comments.  See
-[Here](https://github.com/golang/go/issues/47689) for details.  On other *nix platforms,
+[here](https://github.com/golang/go/issues/47689) for details.  On other *nix platforms,
 it calls `x509.SystemCertPool` and does some reflect nastiness to ferret out the certs.
 
 ## Flags
