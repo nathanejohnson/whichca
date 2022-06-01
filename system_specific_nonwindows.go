@@ -11,6 +11,6 @@ import (
 
 func systemSpecificCmds(cmds map[string]cli.CommandFactory) {
 	cmds["dumpca"] = func() (cli.Command, error) {
-		return cmd.NewCumpCACmd(), nil
+		return cmd.NewDumpCACmd(), nil
 	}
 }

@@ -61,14 +61,15 @@ to get a full dump of the default system certificate bundle, with the following:
 
     whichca dumpca
 
-This works on mac using the `security find-certificate -a -p` utility, which is what golang
+On macOS this uses the `security find-certificate -ap` utility, which is what golang
 did under the covers until recently when they decided to defer to the darwin keychain api
 for verification.  There are some caveats here, one being that the darwin keychain
 is more lax than the golang x509 parser, so some certs in the keychain might not get
-parsed correctly by golang.  In the case it finds one of these, it will spit the
-certificate out in PEM form on stderr with a warning in the comments.  See
-[here](https://github.com/golang/go/issues/47689) for details.  On other *nix platforms,
-it calls `x509.SystemCertPool` and does some reflect nastiness to ferret out the certs.
+parsed correctly by golang.  In the case it finds one of these, it will print the
+certificate in PEM form on stderr with a warning in the comments.  See
+[here](https://github.com/golang/go/issues/47689) for details.  All
+verified certificates will be printed on stdout.  On other *nix platforms,
+this calls `x509.SystemCertPool` and does some reflect nastiness to ferret out the certs.
 
 ## Flags
 

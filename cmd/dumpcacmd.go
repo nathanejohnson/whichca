@@ -8,7 +8,7 @@ type DumpCACmd struct {
 	*BaseCmd
 }
 
-func NewCumpCACmd() *DumpCACmd {
+func NewDumpCACmd() *DumpCACmd {
 	dca := &DumpCACmd{
 		BaseCmd: &BaseCmd{},
 	}
