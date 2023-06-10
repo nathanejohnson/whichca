@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	golog "log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -19,24 +20,24 @@ var (
 	log *golog.Logger
 )
 
-func loadCABundle(loc string) (*x509.CertPool, error) {
-	fBytes, err := ioutil.ReadFile(loc)
+func loadCABundle(loc string) ([]*x509.Certificate, *x509.CertPool, error) {
+	fBytes, err := os.ReadFile(loc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	certders := decodePemsByType(fBytes, "CERTIFICATE")
 	if len(certders) == 0 {
-		return nil, fmt.Errorf("no certificates found in passed bundle %s", loc)
+		return nil, nil, fmt.Errorf("no certificates found in passed bundle %s", loc)
 	}
 	certs, err := x509.ParseCertificates(certders)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing certificates for ca bundle: %w", err)
+		return nil, nil, fmt.Errorf("error parsing certificates for ca bundle: %w", err)
 	}
 	pool := x509.NewCertPool()
 	for _, cert := range certs {
 		pool.AddCert(cert)
 	}
-	return pool, nil
+	return certs, pool, nil
 }
 
 func writeCert(w io.Writer, cert *x509.Certificate) error {

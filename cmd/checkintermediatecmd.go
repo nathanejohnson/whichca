@@ -35,8 +35,6 @@ func NewCheckIntermediateCmd() *CheckIntermediateCmd {
 	return ci
 }
 
-
-
 func (ci *CheckIntermediateCmd) Run(args []string) int {
 	err := ci.f.Parse(args)
 	if err != nil || (len(ci.files) == 0 && len(ci.hostports) == 0) {
@@ -52,7 +50,7 @@ func (ci *CheckIntermediateCmd) Run(args []string) int {
 func (ci *CheckIntermediateCmd) run() error {
 	if ci.cafile != "" {
 		var err error
-		ci.ca, err = loadCABundle(ci.cafile)
+		_, ci.ca, err = loadCABundle(ci.cafile)
 		if err != nil {
 			return err
 		}
@@ -115,7 +113,6 @@ func (ci *CheckIntermediateCmd) run() error {
 	}
 	return nil
 }
-
 
 func (ci *CheckIntermediateCmd) Synopsis() string {
 	return "Check a site or a pem certificate file to see if it is trusted by the global cert store. " +
