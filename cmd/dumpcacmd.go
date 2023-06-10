@@ -41,6 +41,7 @@ func (dc *DumpCACmd) Run(args []string) int {
 			log.Printf("error writing csv: %s", err)
 			return 1
 		}
+		defer csvWriter.Flush()
 	}
 	for _, cert := range certs {
 		switch dc.csv {
@@ -54,5 +55,6 @@ func (dc *DumpCACmd) Run(args []string) int {
 			return 1
 		}
 	}
+
 	return 0
 }

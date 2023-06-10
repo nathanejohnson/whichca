@@ -40,7 +40,7 @@ func (mca *MinCACmd) Run(args []string) int {
 
 	var ca *x509.CertPool
 	if mca.cafile != "" {
-		ca, err = loadCABundle(mca.cafile)
+		_, ca, err = loadCABundle(mca.cafile)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)

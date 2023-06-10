@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/x509"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +16,7 @@ type FetchCACmd struct {
 	URL        string
 	outputFile string
 	verify     bool
+	csv        bool
 	BaseCmd
 }
 
@@ -24,6 +27,7 @@ func NewFetchCACmd() *FetchCACmd {
 	fca.f.StringVar(&fca.URL, "url", "https://curl.se/ca/cacert.pem", "url to remote CA bundle "+
 		"(required) - please do not abuse curl.se")
 	fca.f.BoolVar(&fca.verify, "verify", true, "verify downloaded certificate bundle")
+	fca.f.BoolVar(&fca.csv, "csv", false, "output metadata as csv")
 	return fca
 }
 
@@ -88,7 +92,8 @@ func (fca *FetchCACmd) run() error {
 		return fmt.Errorf("non-200 status code received: %d %s", resp.StatusCode, resp.Status)
 	}
 	var r io.Reader = resp.Body
-	if fca.verify {
+	var certs []*x509.Certificate
+	if fca.verify || fca.csv {
 		tf, err := ioutil.TempFile(os.TempDir(), "fetchca-")
 		if err != nil {
 			return fmt.Errorf("could not create temporary file: %w", err)
@@ -103,21 +108,34 @@ func (fca *FetchCACmd) run() error {
 		}
 		// close file to flush and allow loadCABundle to read it properly
 		tf.Close()
-		pool, err := loadCABundle(tf.Name())
+
+		certs, _, err = loadCABundle(tf.Name())
 		if err != nil {
 			return fmt.Errorf("failed validation of downloaded bundle: %w", err)
 		}
-		log.Printf("verified %d certificates in bundle downloaded from %s", len(pool.Subjects()), fca.URL)
+		log.Printf("verified %d certificates in bundle downloaded from %s", len(certs), fca.URL)
 
 		// reopen the temp file for reading for the copy below.
-		f, err := os.Open(tf.Name())
-		if err != nil {
-			return fmt.Errorf("unable to reopen temp file: %w", err)
+		if !fca.csv {
+			f, err := os.Open(tf.Name())
+			if err != nil {
+				return fmt.Errorf("unable to reopen temp file: %w", err)
+			}
+			defer f.Close()
+			r = f
 		}
-		defer f.Close()
-		r = f
 	}
-	_, err = io.Copy(w, r)
+	if fca.csv {
+		cWriter := csv.NewWriter(w)
+		writeCertCSVHeader(cWriter)
+		for _, cert := range certs {
+			writeCertCSV(cWriter, cert)
+		}
+		cWriter.Flush()
+
+	} else {
+		_, err = io.Copy(w, r)
+	}
 	if err != nil {
 		return fmt.Errorf("error copying payload: %w", err)
 	}
