@@ -1,13 +1,18 @@
 package cmd
 
 import (
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/csv"
 	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
 	golog "log"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 var (
@@ -43,6 +48,45 @@ func writeCert(w io.Writer, cert *x509.Certificate) error {
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,
 	})
+}
+
+func writeCertCSVHeader(w *csv.Writer) error {
+	var rec = []string{
+		"CN",
+		"Issuer",
+		"Is CA",
+		"Algo",
+		"Bits",
+		"Not Before",
+		"Not After",
+	}
+	return w.Write(rec)
+}
+
+func writeCertCSV(w *csv.Writer, cert *x509.Certificate) error {
+	var bits int
+	switch cert.PublicKeyAlgorithm {
+	case x509.RSA:
+		if pk, ok := cert.PublicKey.(*rsa.PublicKey); ok {
+			bits = pk.Size() * 8
+		}
+	case x509.ECDSA:
+		if pk, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
+			bits = pk.Curve.Params().BitSize
+		}
+	default:
+		bits = -1
+	}
+	var rec = []string{
+		cert.Subject.CommonName,
+		cert.Issuer.CommonName,
+		strconv.FormatBool(cert.IsCA),
+		cert.PublicKeyAlgorithm.String(),
+		strconv.FormatInt(int64(bits), 10),
+		cert.NotBefore.Format(time.DateOnly),
+		cert.NotAfter.Format(time.DateOnly),
+	}
+	return w.Write(rec)
 }
 
 func verifyChains(certs []*x509.Certificate, ca *x509.CertPool) (chains [][]*x509.Certificate, dledIntermediates []*x509.Certificate, err error) {
