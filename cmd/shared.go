@@ -67,15 +67,11 @@ func writeCertCSVHeader(w *csv.Writer) error {
 
 func writeCertCSV(w *csv.Writer, cert *x509.Certificate) error {
 	var bits int
-	switch cert.PublicKeyAlgorithm {
-	case x509.RSA:
-		if pk, ok := cert.PublicKey.(*rsa.PublicKey); ok {
-			bits = pk.Size() * 8
-		}
-	case x509.ECDSA:
-		if pk, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
-			bits = pk.Curve.Params().BitSize
-		}
+	switch pk := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		bits = pk.Size() * 8
+	case *ecdsa.PublicKey:
+		bits = pk.Curve.Params().BitSize
 	default:
 		bits = -1
 	}
