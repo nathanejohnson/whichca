@@ -89,14 +89,18 @@ func (ci *CheckIntermediateCmd) run() error {
 				}
 			}
 		}
-		log.Printf("dumpCerts is: %t\n", ci.dumpCerts)
 		if ci.dumpCerts {
-			log.Printf("#  ---------- dumping return from server ----------")
-			log.Printf("#  ----------         leaf               ----------")
-			log.Printf("#  leaf: %s", leaf.Subject.String())
-			log.Printf("#  ----------       intermediates        ----------")
+
+			fmt.Fprintf(w, "#  ---------- dumping return from server ----------\n")
+			fmt.Fprintf(w, "#  ----------         leaf               ----------\n")
+			writeCert(w, leaf)
+
+			fmt.Fprintf(w, "#  ----------       intermediates        ----------\n")
+			if len(ints) == 0 {
+				fmt.Fprintf(w, "#  ----------       none returned        ----------\n")
+			}
 			for _, c := range ints {
-				log.Printf("#  intermediate: %s", c.Subject.String())
+				writeCert(w, c)
 			}
 		}
 
