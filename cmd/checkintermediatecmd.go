@@ -118,7 +118,6 @@ func (ci *CheckIntermediateCmd) run() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("fuck\n")
 		err = process(ok, leaf, ints, missing)
 		if err != nil {
 			return err
