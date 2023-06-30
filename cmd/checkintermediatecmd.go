@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -18,6 +17,7 @@ type CheckIntermediateCmd struct {
 	ca        *x509.CertPool
 	iFile     string
 	quiet     bool
+	dumpCerts bool
 	*BaseCmd
 }
 
@@ -31,6 +31,7 @@ func NewCheckIntermediateCmd() *CheckIntermediateCmd {
 	ci.f.StringVar(&ci.cafile, "ca", "", "path to a ca bundle.  defaults to the system bundle")
 	ci.f.StringVar(&ci.iFile, "out", "-", "path to file to save any intermediates needed. use - for stdout")
 	ci.f.BoolVar(&ci.quiet, "q", false, "whether to suppress writing to path specified in -out")
+	ci.f.BoolVar(&ci.dumpCerts, "dump", false, "if true, dump leaf and intermediate certs returned from server")
 
 	return ci
 }
@@ -74,7 +75,7 @@ func (ci *CheckIntermediateCmd) run() error {
 			w = f
 		}
 	}
-	process := func(ok bool, leaf *x509.Certificate, missing []*x509.Certificate) error {
+	process := func(ok bool, leaf *x509.Certificate, ints []*x509.Certificate, missing []*x509.Certificate) error {
 		if ok {
 			log.Printf("%s is good!", leaf.Subject.CommonName)
 		} else {
@@ -88,25 +89,37 @@ func (ci *CheckIntermediateCmd) run() error {
 				}
 			}
 		}
+		log.Printf("dumpCerts is: %t\n", ci.dumpCerts)
+		if ci.dumpCerts {
+			log.Printf("#  ---------- dumping return from server ----------")
+			log.Printf("#  ----------         leaf               ----------")
+			log.Printf("#  leaf: %s", leaf.Subject.String())
+			log.Printf("#  ----------       intermediates        ----------")
+			for _, c := range ints {
+				log.Printf("#  intermediate: %s", c.Subject.String())
+			}
+		}
+
 		return nil
 	}
 	for _, f := range ci.files {
-		ok, leaf, missing, err := checkFile(f, ci.ca)
+		ok, leaf, ints, missing, err := checkFile(f, ci.ca)
 		if err != nil {
 			return err
 		}
-		err = process(ok, leaf, missing)
+		err = process(ok, leaf, ints, missing)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, hp := range ci.hostports {
-		ok, leaf, missing, err := checkAddr(hp, ci.ca)
+		ok, leaf, ints, missing, err := checkAddr(hp, ci.ca)
 		if err != nil {
 			return err
 		}
-		err = process(ok, leaf, missing)
+		fmt.Printf("fuck\n")
+		err = process(ok, leaf, ints, missing)
 		if err != nil {
 			return err
 		}
@@ -120,7 +133,7 @@ func (ci *CheckIntermediateCmd) Synopsis() string {
 		"dump any missing intermediates needed to correct the configuration."
 }
 
-func checkAddr(addr string, ca *x509.CertPool) (ok bool, leaf *x509.Certificate, missing []*x509.Certificate, err error) {
+func checkAddr(addr string, ca *x509.CertPool) (ok bool, leaf *x509.Certificate, intermediates []*x509.Certificate, missing []*x509.Certificate, err error) {
 	hostport := strings.Split(addr, ":")
 	if len(hostport) != 2 {
 		err = fmt.Errorf("invalid host:port specification: %s", addr)
@@ -162,12 +175,13 @@ func checkAddr(addr string, ca *x509.CertPool) (ok bool, leaf *x509.Certificate,
 	ok = len(missing) == 0
 	if len(PeerCertificates) > 0 {
 		leaf = PeerCertificates[0]
+		intermediates = PeerCertificates[1:]
 	}
-	return ok, leaf, missing, nil
+	return ok, leaf, intermediates, missing, nil
 }
 
-func checkFile(certfile string, ca *x509.CertPool) (ok bool, leafe *x509.Certificate, missing []*x509.Certificate, err error) {
-	fbytes, err := ioutil.ReadFile(certfile)
+func checkFile(certfile string, ca *x509.CertPool) (ok bool, leafe *x509.Certificate, intermediates []*x509.Certificate, missing []*x509.Certificate, err error) {
+	fbytes, err := os.ReadFile(certfile)
 	if err != nil {
 		err = fmt.Errorf("error reading file %s: %w", certfile, err)
 		return
@@ -196,5 +210,5 @@ func checkFile(certfile string, ca *x509.CertPool) (ok bool, leafe *x509.Certifi
 	}
 
 	ok = len(missing) == 0
-	return ok, certs[0], missing, nil
+	return ok, certs[0], certs[1:], missing, nil
 }
