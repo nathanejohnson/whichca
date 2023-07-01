@@ -143,7 +143,7 @@ for GOOS in "${GOOSES[@]}"; do
 		fi
 		FILENAME="${NAME}_${RELEASE}_${GOOS}_${GOARCH}${SUFFIX}"
 		echo building "${FILENAME}"
-		GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 go build -o "${FILENAME}"
+		GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 go build -o "${FILENAME}" -ldflags "-X main.version=${RELEASE}"
 	done
 done
 
