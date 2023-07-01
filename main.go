@@ -10,9 +10,10 @@ import (
 	"github.com/nathanejohnson/whichca/cmd"
 )
 
+var version = ""
+
 func main() {
 	log := logpkg.New(os.Stdout, "", 0)
-	version := ""
 	bi, ok := debug.ReadBuildInfo()
 	if ok {
 		version = bi.Main.Version
