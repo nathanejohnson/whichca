@@ -86,5 +86,5 @@ character.
 To install, download a release binary from the releases page on github (preferred),
 or to install from source simply:
 
-    go get github.com/nathanejohnson/whichca
+    go install github.com/nathanejohnson/whichca@latest
     
