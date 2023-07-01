@@ -57,13 +57,12 @@ func (ci *CheckIntermediateCmd) run() error {
 		}
 	}
 	save := true
-	var w io.Writer
+	var w io.Writer = os.Stdout
 	if ci.quiet || ci.iFile == "" {
 		save = false
 	} else {
 		switch ci.iFile {
 		case "-":
-			w = os.Stdout
 			defer os.Stdout.Sync()
 		default:
 			f, err := os.OpenFile(ci.iFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
