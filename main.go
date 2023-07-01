@@ -15,7 +15,7 @@ var version = ""
 func main() {
 	log := logpkg.New(os.Stdout, "", 0)
 	bi, ok := debug.ReadBuildInfo()
-	if ok {
+	if ok && version == "" {
 		version = bi.Main.Version
 	}
 	c := cli.NewCLI(os.Args[0], version)
