@@ -3,16 +3,20 @@ package main
 import (
 	logpkg "log"
 	"os"
+	"runtime/debug"
 
 	"github.com/mitchellh/cli"
 
 	"github.com/nathanejohnson/whichca/cmd"
 )
 
-var version = ""
-
 func main() {
 	log := logpkg.New(os.Stdout, "", 0)
+	version := ""
+	bi, ok := debug.ReadBuildInfo()
+	if ok {
+		version = bi.Main.Version
+	}
 	c := cli.NewCLI(os.Args[0], version)
 	c.Commands = map[string]cli.CommandFactory{
 		"minca": func() (cli.Command, error) {
