@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/csv"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -61,6 +62,7 @@ func writeCertCSVHeader(w *csv.Writer) error {
 		"Bits",
 		"Not Before",
 		"Not After",
+		"Subject",
 	}
 	return w.Write(rec)
 }
@@ -84,6 +86,7 @@ func writeCertCSV(w *csv.Writer, cert *x509.Certificate) error {
 		strconv.FormatInt(int64(bits), 10),
 		cert.NotBefore.Format(time.DateOnly),
 		cert.NotAfter.Format(time.DateOnly),
+		cert.Subject.String(),
 	}
 	return w.Write(rec)
 }
@@ -118,6 +121,9 @@ func verifyChains(certs []*x509.Certificate, ca *x509.CertPool) (chains [][]*x50
 	}
 	return
 }
+
+var ErrNoIssuingCertURL = errors.New("no issuing certificate URL")
+
 func fetchIntermediates(cert *x509.Certificate, ca *x509.CertPool) ([]*x509.Certificate, error) {
 	origCert := cert
 	var retval []*x509.Certificate
@@ -129,8 +135,8 @@ func fetchIntermediates(cert *x509.Certificate, ca *x509.CertPool) ([]*x509.Cert
 			break
 		}
 		if len(cert.IssuingCertificateURL) == 0 {
-			return nil, fmt.Errorf("failed to fetchintermediates for %s",
-				origCert.Subject.CommonName)
+			return nil, fmt.Errorf("%s: %w",
+				origCert.Subject.CommonName, ErrNoIssuingCertURL)
 		}
 		cert, err = fetchCert(cert.IssuingCertificateURL[0])
 		if err != nil {

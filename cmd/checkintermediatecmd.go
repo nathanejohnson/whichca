@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -75,9 +76,13 @@ func (ci *CheckIntermediateCmd) run() error {
 		}
 	}
 	process := func(ok bool, leaf *x509.Certificate, ints []*x509.Certificate, missing []*x509.Certificate) error {
+		if leaf == nil {
+			return errors.New("no leaf certificate found")
+		}
 		if ok {
-			log.Printf("%s is good!", leaf.Subject.CommonName)
+			log.Printf("%s is good! :)", leaf.Subject.CommonName)
 		} else {
+			log.Printf("%s is not good :(️", leaf.Subject.CommonName)
 			for _, m := range missing {
 				log.Printf("%s is missing", m.Subject.CommonName)
 				if save {
@@ -143,6 +148,8 @@ func checkAddr(addr string, ca *x509.CertPool) (ok bool, leaf *x509.Certificate,
 	}
 	var PeerCertificates []*x509.Certificate
 	var conn net.Conn
+
+	var innerError error
 	conn, err = tls.Dial("tcp", addr, &tls.Config{
 		ServerName:         hostport[0],
 		InsecureSkipVerify: true,
@@ -161,11 +168,8 @@ func checkAddr(addr string, ca *x509.CertPool) (ok bool, leaf *x509.Certificate,
 				}
 				PeerCertificates = append(PeerCertificates, cert)
 			}
-			var err error
-			_, missing, err = verifyChains(PeerCertificates, ca)
-			if err != nil {
-				return err
-			}
+
+			_, missing, innerError = verifyChains(PeerCertificates, ca)
 			return nil
 		},
 	})
@@ -174,7 +178,15 @@ func checkAddr(addr string, ca *x509.CertPool) (ok bool, leaf *x509.Certificate,
 		return
 	}
 	conn.Close()
-	ok = len(missing) == 0
+	if innerError != nil {
+		if !errors.Is(innerError, ErrNoIssuingCertURL) {
+			err = innerError
+			return
+		}
+		ok = false
+	} else {
+		ok = len(missing) == 0
+	}
 	if len(PeerCertificates) > 0 {
 		leaf = PeerCertificates[0]
 		intermediates = PeerCertificates[1:]
