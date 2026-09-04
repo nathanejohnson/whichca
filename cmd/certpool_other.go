@@ -10,7 +10,11 @@ import (
 	"unsafe"
 )
 
-func SystemCertPool() ([]*x509.Certificate, error) {
+// SystemCertPool returns the certificates in the platform's trust store.
+//
+// includeUntrusted is ignored: the on disk bundles x509.SystemCertPool reads
+// are lists of trust anchors, so there is no untrusted remainder to add.
+func SystemCertPool(includeUntrusted bool) ([]*x509.Certificate, error) {
 	systemCA, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, err

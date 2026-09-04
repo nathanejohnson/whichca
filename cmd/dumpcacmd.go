@@ -7,7 +7,8 @@ import (
 
 type DumpCACmd struct {
 	*BaseCmd
-	csv bool
+	csv       bool
+	untrusted bool
 }
 
 func NewDumpCACmd() *DumpCACmd {
@@ -16,6 +17,8 @@ func NewDumpCACmd() *DumpCACmd {
 	}
 	dca.Init("dumpca")
 	dca.f.BoolVar(&dca.csv, "csv", false, "output metadata as csv")
+	dca.f.BoolVar(&dca.untrusted, "untrusted", false, "also include certificates that are present in the "+
+		"platform's stores but aren't trust anchors.  only macos distinguishes the two")
 	return dca
 }
 
@@ -28,7 +31,7 @@ func (dc *DumpCACmd) Run(args []string) int {
 	if err != nil {
 		return RunResultHelp
 	}
-	certs, err := SystemCertPool()
+	certs, err := SystemCertPool(dc.untrusted)
 	if err != nil {
 		log.Printf("error fetching system cert pool: %s", err)
 		return 1

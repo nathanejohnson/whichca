@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
@@ -39,6 +40,27 @@ func loadCABundle(loc string) ([]*x509.Certificate, *x509.CertPool, error) {
 		pool.AddCert(cert)
 	}
 	return certs, pool, nil
+}
+
+// loadSystemCABundle builds a pool from the platform's trusted roots.
+//
+// this exists so callers can hand Verify a real pool rather than a nil one.
+// on macos and windows a nil Roots delegates the whole verification to the
+// platform verifier, which chases the AIA extension and downloads missing
+// intermediates itself -- so a server with an incomplete chain verifies fine
+// and we never notice the misconfiguration we were asked to find.
+func loadSystemCABundle() (*x509.CertPool, error) {
+	// trusted certificates only: an untrusted root in the pool would let a
+	// chain verify here that the platform itself would reject.
+	certs, err := SystemCertPool(false)
+	if err != nil {
+		return nil, fmt.Errorf("error loading system cert pool: %w", err)
+	}
+	pool := x509.NewCertPool()
+	for _, cert := range certs {
+		pool.AddCert(cert)
+	}
+	return pool, nil
 }
 
 func writeCert(w io.Writer, cert *x509.Certificate) error {
@@ -138,7 +160,9 @@ func fetchIntermediates(cert *x509.Certificate, ca *x509.CertPool) ([]*x509.Cert
 			return nil, fmt.Errorf("%s: %w",
 				origCert.Subject.CommonName, ErrNoIssuingCertURL)
 		}
-		cert, err = fetchCert(cert.IssuingCertificateURL[0])
+		// into a new variable: on failure fetchCert returns a nil cert, and
+		// the error below still needs the current one to name the issuer.
+		issuer, err := fetchCert(cert.IssuingCertificateURL[0])
 		if err != nil {
 			return nil, fmt.Errorf("error fetching intermediate %s for %s: %w",
 				cert.Issuer.CommonName,
@@ -146,8 +170,14 @@ func fetchIntermediates(cert *x509.Certificate, ca *x509.CertPool) ([]*x509.Cert
 				err,
 			)
 		}
-		retval = append(retval, cert)
-
+		cert = issuer
+		// only intermediates count as missing.  a server isn't expected to
+		// send its root, so a self signed cert picked up on the way up the
+		// chain isn't a misconfiguration and doesn't belong in the bundle of
+		// certs the operator needs to add.
+		if !bytes.Equal(cert.RawSubject, cert.RawIssuer) {
+			retval = append(retval, cert)
+		}
 	}
 	return retval, nil
 }

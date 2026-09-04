@@ -29,8 +29,13 @@ func main() {
 		"fetchca": func() (cli.Command, error) {
 			return cmd.NewFetchCACmd(), nil
 		},
+		"dumpca": func() (cli.Command, error) {
+			return cmd.NewDumpCACmd(), nil
+		},
+		"x509": func() (cli.Command, error) {
+			return cmd.NewX509Cmd(), nil
+		},
 	}
-	systemSpecificCmds(c.Commands)
 	c.Args = os.Args[1:]
 	errno, err := c.Run()
 	if err != nil {

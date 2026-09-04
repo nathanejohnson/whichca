@@ -2,7 +2,10 @@ module github.com/nathanejohnson/whichca
 
 go 1.18
 
-require github.com/mitchellh/cli v1.1.5
+require (
+	github.com/mitchellh/cli v1.1.5
+	howett.net/plist v1.0.1
+)
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
