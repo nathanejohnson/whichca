@@ -41,10 +41,12 @@ func (mca *MinCACmd) Run(args []string) int {
 	var ca *x509.CertPool
 	if mca.cafile != "" {
 		_, ca, err = loadCABundle(mca.cafile)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
+	} else {
+		ca, err = loadSystemCABundle()
+	}
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
 	}
 
 	cm := make(map[string]*x509.Certificate)
@@ -121,12 +123,19 @@ func processAddr(addr string, ca *x509.CertPool) ([]*x509.Certificate, error) {
 	}
 
 	conn.Close()
-	if len(VerifiedChains) != 1 {
-		return nil, fmt.Errorf("weird length of VerifiedChains: %d", len(VerifiedChains))
+	if len(VerifiedChains) == 0 {
+		return nil, fmt.Errorf("no verified chains for %s", addr)
 	}
 
-	return cullCerts(PeerCertificates, VerifiedChains[0]), nil
-
+	// a leaf can verify by more than one path when a root is cross signed.
+	// keep every path: which one a given client can use depends on what its
+	// trust store already has, and that's the point of the cross signature.
+	// Run dedupes by thumbprint.
+	var ret []*x509.Certificate
+	for _, chain := range VerifiedChains {
+		ret = append(ret, cullCerts(PeerCertificates, chain)...)
+	}
+	return ret, nil
 }
 
 func thumb(cert *x509.Certificate) string {
@@ -168,7 +177,7 @@ func processFile(certfile string, ca *x509.CertPool) ([]*x509.Certificate, error
 	}
 
 	if len(certs) == 0 {
-		fmt.Errorf("no proper ASN1 certificate data found in file %s", certfile)
+		return nil, fmt.Errorf("no proper ASN1 certificate data found in file %s", certfile)
 	}
 
 	chains, _, err := verifyChains(certs, ca)

@@ -12,13 +12,15 @@ import (
 )
 
 type CheckIntermediateCmd struct {
-	hostports stringparams
-	files     globparams
-	cafile    string
-	ca        *x509.CertPool
-	iFile     string
-	quiet     bool
-	dumpCerts bool
+	hostports       stringparams
+	files           globparams
+	cafile          string
+	ca              *x509.CertPool
+	iFile           string
+	quiet           bool
+	dumpCerts       bool
+	dumpCertsPretty bool
+	systemVerify    bool
 	*BaseCmd
 }
 
@@ -32,8 +34,11 @@ func NewCheckIntermediateCmd() *CheckIntermediateCmd {
 	ci.f.StringVar(&ci.cafile, "ca", "", "path to a ca bundle.  defaults to the system bundle")
 	ci.f.StringVar(&ci.iFile, "out", "-", "path to file to save any intermediates needed. use - for stdout")
 	ci.f.BoolVar(&ci.quiet, "q", false, "whether to suppress writing to path specified in -out")
-	ci.f.BoolVar(&ci.dumpCerts, "dump", false, "if true, dump leaf and intermediate certs returned from server")
-
+	ci.f.BoolVar(&ci.dumpCerts, "dump", false, "if true, dump leaf and intermediate certs returned from server in pem format")
+	ci.f.BoolVar(&ci.dumpCertsPretty, "dump-pretty", false, "if true, dump leaf and intermediate certs returned from server in text format")
+	ci.f.BoolVar(&ci.systemVerify, "system-verify", false, "defer to the platform verifier instead of an explicit root bundle. "+
+		"on macos and windows that verifier downloads missing intermediates itself, so a misconfigured site can still pass. "+
+		"run with and without to tell 'correctly configured' apart from 'the os papered over it'")
 	return ci
 }
 
@@ -41,6 +46,9 @@ func (ci *CheckIntermediateCmd) Run(args []string) int {
 	err := ci.f.Parse(args)
 	if err != nil || (len(ci.files) == 0 && len(ci.hostports) == 0) {
 		return RunResultHelp
+	}
+	if ci.dumpCertsPretty {
+		ci.dumpCerts = true
 	}
 
 	if err = ci.run(); err != nil {
@@ -50,12 +58,20 @@ func (ci *CheckIntermediateCmd) Run(args []string) int {
 	return 0
 }
 func (ci *CheckIntermediateCmd) run() error {
-	if ci.cafile != "" {
-		var err error
+	var err error
+	switch {
+	case ci.cafile != "" && ci.systemVerify:
+		return errors.New("-ca and -system-verify conflict: the platform verifier uses its own roots")
+	case ci.cafile != "":
 		_, ci.ca, err = loadCABundle(ci.cafile)
-		if err != nil {
-			return err
-		}
+	case ci.systemVerify:
+		// leave the pool nil.  a nil Roots is what tells Verify to hand off to
+		// the platform verifier on macos and windows.
+	default:
+		ci.ca, err = loadSystemCABundle()
+	}
+	if err != nil {
+		return err
 	}
 	save := true
 	var w io.Writer = os.Stdout
@@ -83,6 +99,11 @@ func (ci *CheckIntermediateCmd) run() error {
 			log.Printf("%s is good! :)", leaf.Subject.CommonName)
 		} else {
 			log.Printf("%s is not good :(️", leaf.Subject.CommonName)
+			if save && len(missing) > 0 {
+				// label these, so they can't be confused with the -dump
+				// section below when both end up on the same stream.
+				fmt.Fprintf(w, "#  ----------  intermediates to add     ----------\n")
+			}
 			for _, m := range missing {
 				log.Printf("%s is missing", m.Subject.CommonName)
 				if save {
@@ -94,17 +115,25 @@ func (ci *CheckIntermediateCmd) run() error {
 			}
 		}
 		if ci.dumpCerts {
+			dump := writeCert
+			if ci.dumpCertsPretty {
+				dump = writeCertPretty
+			}
 
 			fmt.Fprintf(w, "#  ---------- dumping return from server ----------\n")
 			fmt.Fprintf(w, "#  ----------         leaf               ----------\n")
-			writeCert(w, leaf)
+			if err := dump(w, leaf); err != nil {
+				return err
+			}
 
 			fmt.Fprintf(w, "#  ----------       intermediates        ----------\n")
 			if len(ints) == 0 {
 				fmt.Fprintf(w, "#  ----------       none returned        ----------\n")
 			}
 			for _, c := range ints {
-				writeCert(w, c)
+				if err := dump(w, c); err != nil {
+					return err
+				}
 			}
 		}
 
