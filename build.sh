@@ -27,6 +27,9 @@ will be skipped because we asked it to.
 
 EOF
 }
+
+declare -a valids=( $(go tool dist list) )
+
 function supported_osarch {
 	# Arguments:
 	#   $1 - osarch - example, linux/amd64
@@ -35,7 +38,6 @@ function supported_osarch {
 	#   0 - supported
 	#   * - not supported
 	local osarch="$1"
-	local -a valids=( $(go tool dist list) )
 	in_array "${osarch}" "${valids[@]}"
 	return $?
 }
@@ -45,7 +47,7 @@ function in_array {
 	shift
 	local -a haystack=("$@")
 
-	for item in "$@"; do
+	for item in "${haystack[@]}"; do
 		if [ "$item" == "$needle" ]; then
 			return 0
 		fi
