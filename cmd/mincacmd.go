@@ -140,7 +140,8 @@ func processAddr(addr string, ca *x509.CertPool) ([]*x509.Certificate, error) {
 }
 
 func thumb(cert *x509.Certificate) string {
-	return base64.RawStdEncoding.EncodeToString(sha1.New().Sum(cert.Raw))
+	sum := sha1.Sum(cert.Raw)
+	return base64.RawStdEncoding.EncodeToString(sum[:])
 }
 
 func cullCerts(exclude []*x509.Certificate, haystack []*x509.Certificate) []*x509.Certificate {
