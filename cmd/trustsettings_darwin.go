@@ -40,7 +40,7 @@ type trustSettingsPlist struct {
 	TrustList map[string]struct {
 		TrustSettings []struct {
 			PolicyName string `plist:"kSecTrustSettingsPolicyName"`
-			Result     int    `plist:"kSecTrustSettingsResult"`
+			Result     *int   `plist:"kSecTrustSettingsResult"`
 		} `plist:"trustSettings"`
 	} `plist:"trustList"`
 }
@@ -72,7 +72,13 @@ func (ts trustSettings) trusts(cert *x509.Certificate) bool {
 			if !tlsTrustPolicies[setting.PolicyName] {
 				continue
 			}
-			switch setting.Result {
+			// the result key is optional.  SecTrustSettings.h documents
+			// trust root as its default when it's left out.
+			result := trustResultTrustRoot
+			if setting.Result != nil {
+				result = *setting.Result
+			}
+			switch result {
 			case trustResultTrustRoot, trustResultTrustAsRoot:
 				return true
 			case trustResultDeny:
