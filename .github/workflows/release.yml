@@ -8,22 +8,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-      - name: Setup golang 1.22
-        uses: actions/setup-go@v2
+        uses: actions/checkout@v7
+      - name: Setup golang
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.22'
+          go-version: 'stable'
       - name: Build for all platforms
-        run: ${GITHUB_WORKSPACE}/build.sh whichca ${{ steps.get_version.outputs.VERSION }}
+        run: ${GITHUB_WORKSPACE}/build.sh whichca ${GITHUB_REF_NAME}
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: whichca_*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

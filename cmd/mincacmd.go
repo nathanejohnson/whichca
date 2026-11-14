@@ -24,7 +24,6 @@ func NewMinCACmd() *MinCACmd {
 		BaseCmd: &BaseCmd{},
 	}
 	mca.BaseCmd.Init("minca")
-	mca.f.SetOutput(mca.b)
 	mca.f.Var(&mca.hostports, "hp", "search `host:port` for ssl chains")
 	mca.f.Var(&mca.files, "p", "search `pathspec` for certificate files")
 	mca.f.BoolVar(&mca.contOnError, "continue", false, "continue on error")
@@ -33,12 +32,14 @@ func NewMinCACmd() *MinCACmd {
 }
 
 func (mca *MinCACmd) Run(args []string) int {
-	err := mca.f.Parse(args)
-	if err != nil || (len(mca.files) == 0 && len(mca.hostports) == 0) {
+	if len(mca.files) == 0 && len(mca.hostports) == 0 {
 		return RunResultHelp
 	}
 
-	var ca *x509.CertPool
+	var (
+		ca  *x509.CertPool
+		err error
+	)
 	if mca.cafile != "" {
 		_, ca, err = loadCABundle(mca.cafile)
 	} else {

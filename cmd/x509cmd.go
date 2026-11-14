@@ -29,7 +29,6 @@ func NewX509Cmd() *X509Cmd {
 		BaseCmd: &BaseCmd{},
 	}
 	x.BaseCmd.Init("x509")
-	x.f.SetOutput(x.b)
 	x.f.StringVar(&x.inFile, "in", "-", "input file.  '-' reads stdin")
 	x.f.StringVar(&x.outFile, "out", "-", "output file.  '-' goes to stdout")
 	x.f.StringVar(&x.inForm, "inform", "", "input format, PEM or DER.  detected from the input when unset")
@@ -44,9 +43,6 @@ func (x *X509Cmd) Synopsis() string {
 }
 
 func (x *X509Cmd) Run(args []string) int {
-	if err := x.f.Parse(args); err != nil {
-		return RunResultHelp
-	}
 	// bare invocation: read whatever shows up on stdin and describe it.  the
 	// encoded copy is rarely what you want when you didn't ask for anything.
 	if x.f.NFlag() == 0 {

@@ -27,10 +27,6 @@ func (dc *DumpCACmd) Synopsis() string {
 }
 
 func (dc *DumpCACmd) Run(args []string) int {
-	err := dc.f.Parse(args)
-	if err != nil {
-		return RunResultHelp
-	}
 	certs, err := SystemCertPool(dc.untrusted)
 	if err != nil {
 		log.Printf("error fetching system cert pool: %s", err)

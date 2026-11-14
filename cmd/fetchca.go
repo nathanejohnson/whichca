@@ -32,12 +32,11 @@ func NewFetchCACmd() *FetchCACmd {
 }
 
 func (fca *FetchCACmd) Run(args []string) int {
-	err := fca.f.Parse(args)
-	if err != nil || len(fca.URL) == 0 || len(fca.outputFile) == 0 {
+	if len(fca.URL) == 0 || len(fca.outputFile) == 0 {
 		return RunResultHelp
 	}
 
-	err = fca.run()
+	err := fca.run()
 	if err != nil {
 		log.Printf("error fetching: %s", err)
 		return 1

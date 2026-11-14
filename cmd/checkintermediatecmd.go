@@ -43,15 +43,14 @@ func NewCheckIntermediateCmd() *CheckIntermediateCmd {
 }
 
 func (ci *CheckIntermediateCmd) Run(args []string) int {
-	err := ci.f.Parse(args)
-	if err != nil || (len(ci.files) == 0 && len(ci.hostports) == 0) {
+	if len(ci.files) == 0 && len(ci.hostports) == 0 {
 		return RunResultHelp
 	}
 	if ci.dumpCertsPretty {
 		ci.dumpCerts = true
 	}
 
-	if err = ci.run(); err != nil {
+	if err := ci.run(); err != nil {
 		log.Println(err)
 		return 1
 	}

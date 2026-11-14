@@ -6,9 +6,8 @@ import (
 )
 
 const (
-	// We mirror the github.com/mitchellh/cli constant here
-	// to decouple this package from the cli package, even
-	// though our main requires it.
+	// RunResultHelp is returned from Run to have main print
+	// the command's help text.
 	RunResultHelp = -18511
 )
 
